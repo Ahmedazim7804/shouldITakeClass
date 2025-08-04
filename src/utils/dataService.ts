@@ -135,6 +135,24 @@ export class DataService {
     }
   }
 
+  static async updateAttendanceRecord(record: AttendanceRecord): Promise<void> {
+    try {
+      await db.updateAttendanceRecord(record);
+    } catch (error) {
+      console.error('Error updating attendance record:', error);
+      throw new Error('Failed to update attendance record');
+    }
+  }
+
+  static async deleteAttendanceRecord(id: string): Promise<void> {
+    try {
+      await db.deleteAttendanceRecord(id);
+    } catch (error) {
+      console.error('Error deleting attendance record:', error);
+      throw new Error('Failed to delete attendance record');
+    }
+  }
+
   // User preferences operations
   static async getUserPreferences(): Promise<UserPreferences | null> {
     try {
@@ -241,15 +259,15 @@ export class DataService {
             id: '1',
             name: 'Data Structures & Algorithms',
             code: 'CS201',
-            totalClasses: 45,
-            attendedClasses: 35,
+            totalClasses: 40,
+            attendedClasses: 32,
             color: '#3B82F6'
           },
           {
             id: '2',
             name: 'Database Management Systems',
             code: 'CS301',
-            totalClasses: 42,
+            totalClasses: 40,
             attendedClasses: 30,
             color: '#10B981'
           },
@@ -265,7 +283,7 @@ export class DataService {
             id: '4',
             name: 'Computer Networks',
             code: 'CS401',
-            totalClasses: 38,
+            totalClasses: 40,
             attendedClasses: 32,
             color: '#EF4444'
           },
@@ -273,8 +291,8 @@ export class DataService {
             id: '5',
             name: 'Software Engineering Lab',
             code: 'CS303L',
-            totalClasses: 24,
-            attendedClasses: 20,
+            totalClasses: 40,
+            attendedClasses: 35,
             color: '#8B5CF6'
           }
         ];
@@ -291,6 +309,8 @@ export class DataService {
           { id: '5', courseId: '1', day: 'Wednesday', startTime: '09:00', endTime: '10:30', location: 'Room 101' },
           { id: '6', courseId: '2', day: 'Thursday', startTime: '11:00', endTime: '12:30', location: 'Room 205' },
           { id: '7', courseId: '3', day: 'Friday', startTime: '10:00', endTime: '11:30', location: 'Room 301' },
+          { id: '8', courseId: '5', day: 'Wednesday', startTime: '14:00', endTime: '17:00', location: 'Lab 1' },
+          { id: '9', courseId: '4', day: 'Friday', startTime: '14:00', endTime: '15:30', location: 'Room 102' },
         ];
 
         for (const schedule of sampleSchedule) {

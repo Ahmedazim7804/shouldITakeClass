@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, BookOpen, BarChart3, Settings, History } from 'lucide-react';
+import { Calendar, BookOpen, BarChart3, Settings, History, LogOut, User } from 'lucide-react';
+import { Auth } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
 import { CourseCard } from './components/CourseCard';
 import { CourseForm } from './components/CourseForm';
@@ -7,12 +8,15 @@ import { ScheduleView } from './components/ScheduleView';
 import { ScheduleForm } from './components/ScheduleForm';
 import { PreferencesForm } from './components/PreferencesForm';
 import { AttendanceHistory } from './components/AttendanceHistory';
+import { TodayClasses } from './components/TodayClasses';
 import { Course, ClassSchedule, ScheduleOverride, UserPreferences, AttendanceRecord } from './types';
 import { AIDecisionEngine } from './utils/aiDecisionEngine';
 import { DataService } from './utils/dataService';
+import { supabase } from './utils/supabase';
 
 function App() {
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'courses' | 'schedule' | 'history'>('dashboard');
+  const [user, setUser] = useState<any>(null);
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'courses' | 'schedule' | 'history' | 'today'>('today');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [schedule, setSchedule] = useState<ClassSchedule[]>([]);
@@ -37,42 +41,68 @@ function App() {
   const [editingCourse, setEditingCourse] = useState<Course | undefined>();
   const [editingClass, setEditingClass] = useState<ClassSchedule | undefined>();
 
-  // Initialize data on first load
+  // Authentication check on startup
   useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Initialize default data if needed
-        await DataService.initializeDefaultData();
-        
-        // Load data from database
-        const [dbCourses, dbSchedule, dbPreferences] = await Promise.all([
-          DataService.getAllCourses(),
-          DataService.getAllClassSchedules(),
-          DataService.getUserPreferences()
-        ]);
-
-        setCourses(dbCourses);
-        setSchedule(dbSchedule);
-        
-        if (dbPreferences) {
-          setPreferences(dbPreferences);
-        }
-      } catch (error) {
-        console.error('Error initializing app:', error);
-      } finally {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser(user);
+        await initializeApp();
+      } else {
         setIsLoading(false);
       }
     };
-
-    initializeApp();
+    checkUser();
   }, []);
+
+  const handleAuthSuccess = async (authenticatedUser: any) => {
+    setUser(authenticatedUser);
+    await initializeApp();
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    // Reset app state
+    setCourses([]);
+    setSchedule([]);
+    setOverrides([]);
+    setRecommendation(null);
+    setCurrentTab('today');
+  };
+
+  // Initialize data on first load
+  const initializeApp = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Initialize default data if needed
+      await DataService.initializeDefaultData();
+      
+      // Load data from database
+      const [dbCourses, dbSchedule, dbPreferences] = await Promise.all([
+        DataService.getAllCourses(),
+        DataService.getAllClassSchedules(),
+        DataService.getUserPreferences()
+      ]);
+
+      setCourses(dbCourses);
+      setSchedule(dbSchedule);
+      
+      if (dbPreferences) {
+        setPreferences(dbPreferences);
+      }
+    } catch (error) {
+      console.error('Error initializing app:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Generate AI-enhanced recommendation
   useEffect(() => {
     const generateRecommendation = async () => {
-      if (courses.length === 0 || isLoading) return;
+      if (courses.length === 0 || isLoading || !user) return;
 
       try {
         const aiEngine = new AIDecisionEngine(preferences);
@@ -84,7 +114,7 @@ function App() {
     };
 
     generateRecommendation();
-  }, [selectedDate, courses, schedule, overrides, preferences, isLoading]);
+  }, [selectedDate, courses, schedule, overrides, preferences, isLoading, user]);
 
   const handleSaveCourse = async (courseData: Omit<Course, 'id'>) => {
     try {
@@ -206,11 +236,22 @@ function App() {
     }
   };
 
+  const refreshData = async () => {
+    const dbCourses = await DataService.getAllCourses();
+    setCourses(dbCourses);
+  };
+
+  // Show auth screen if not logged in
+  if (!user) {
+    return <Auth onAuthSuccess={handleAuthSuccess} />;
+  }
+
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'today', label: "Today's Classes", icon: Calendar },
+    { id: 'dashboard', label: 'AI Dashboard', icon: BarChart3 },
     { id: 'courses', label: 'Courses', icon: BookOpen },
     { id: 'schedule', label: 'Schedule', icon: Calendar },
-    { id: 'history', label: 'Attendance History', icon: History },
+    { id: 'history', label: 'History', icon: History },
   ] as const;
 
   if (isLoading) {
@@ -227,6 +268,27 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Header with User Info */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">College Attendance Optimizer</h1>
+            <p className="text-gray-600">Smart attendance tracking powered by AI</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-gray-600">
+              <User className="w-4 h-4" />
+              <span className="text-sm">{user.email}</span>
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
+          </div>
+        </div>
+
         {/* Navigation */}
         <nav className="mb-8">
           <div className="flex items-center gap-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200">
@@ -250,8 +312,8 @@ function App() {
           </div>
         </nav>
 
-        {/* Date Selector for Dashboard */}
-        {currentTab === 'dashboard' && (
+        {/* Date Selector for Dashboard and Today */}
+        {(currentTab === 'dashboard' || currentTab === 'today') && (
           <div className="mb-6">
             <div className="flex items-center justify-between">
               <div>
@@ -265,18 +327,28 @@ function App() {
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              <button
-                onClick={() => setShowPreferencesForm(true)}
-                className="flex items-center gap-2 px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
-              >
-                <Settings className="w-4 h-4" />
-                AI Settings
-              </button>
+              {currentTab === 'dashboard' && (
+                <button
+                  onClick={() => setShowPreferencesForm(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+                >
+                  <Settings className="w-4 h-4" />
+                  AI Settings
+                </button>
+              )}
             </div>
           </div>
         )}
 
         {/* Content */}
+        {currentTab === 'today' && (
+          <TodayClasses 
+            courses={courses}
+            selectedDate={selectedDate}
+            onAttendanceUpdate={refreshData}
+          />
+        )}
+
         {currentTab === 'dashboard' && recommendation && (
           <div className="space-y-6">
             <Dashboard 

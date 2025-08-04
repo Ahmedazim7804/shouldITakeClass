@@ -245,6 +245,34 @@ export class AttendanceDatabase {
     }
   }
 
+  async updateAttendanceRecord(record: AttendanceRecord): Promise<void> {
+    const { error } = await supabase
+      .from('attendance_records')
+      .update({
+        attended: record.attended,
+        cancelled: record.cancelled,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', record.id);
+    
+    if (error) {
+      console.error('Error updating attendance record:', error);
+      throw new Error('Failed to update attendance record');
+    }
+  }
+
+  async deleteAttendanceRecord(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('attendance_records')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error deleting attendance record:', error);
+      throw new Error('Failed to delete attendance record');
+    }
+  }
+
   // User preferences operations
   async getUserPreferences(): Promise<UserPreferences | null> {
     const { data, error } = await supabase
